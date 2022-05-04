@@ -104,74 +104,70 @@ while True:
 
             packet_length = unpack_varint(c)  # Packet Length
             packet_id = unpack_varint(c)  # Packet ID
-            protocol_version = unpack_varint(c)  # Protcol Version
-            server_address_length = unpack_varint(c)  # Server Address Length
-            server_address = c.recv(server_address_length)  # Server Address
-            server_port = c.recv(2)  # Server port
-            next_state = unpack_varint(c)  # Next State
 
-            print(f"Packet Length: {packet_length}")
-            print(f"Packet ID: {packet_id}")
-            print(f"Protocol Version: {protocol_version}")
-            print(f"Server Address Length: {server_address_length}")
-            print(f"Server Address: {server_address}")
-            print(f"Server Port: {int.from_bytes(server_port, 'big')}")
-            print(f"Next State: {next_state}")
-            print(f"Additional: {c.recv(1024)}")
+            print(f"{addr} > {packet_id}")
 
-            if packet_id == 0 and next_state == 1:
-                pingcount += 1
+            if packet_id == 0:
+                protocol_version = unpack_varint(c)  # Protcol Version
+                server_address_length = unpack_varint(c)  # Server Address Length
+                server_address = c.recv(server_address_length)  # Server Address
+                server_port = c.recv(2)  # Server port
+                next_state = unpack_varint(c)  # Next State
+                c.recv(1024)  # Remaining Useless Data
 
-                # Open the icon.png image and write the current ping count on it
-                img = Image.open("icon.png")
-                draw = ImageDraw.Draw(img)
-                draw.text((10, 10), str(pingcount), (255, 255, 255))
-                img = img.resize((64, 64))
+                if next_state == 1:
+                    pingcount += 1
 
-                # Save the image into a buffer so we can turn it into a base64 string
-                buffer = BytesIO()
-                img.save(buffer, format="PNG")
-                img_str = base64.b64encode(buffer.getvalue())
+                    # Open the icon.png image and write the current ping count on it
+                    img = Image.open("icon.png")
+                    draw = ImageDraw.Draw(img)
+                    draw.text((10, 10), str(pingcount), (255, 255, 255))
+                    img = img.resize((64, 64))
 
-                # Create a response json with the given parameters
-                res = get_ping(
-                    f"§aHello World!\n§7I've been pinged §b{str(pingcount)} §7times.",
-                    img_str.decode('utf8'),
-                    "1.8.9",
-                    47,
-                    [
-                        "This is the player list",
-                        "You can put anything here",
-                        "§cColor codes work!"
-                    ],
-                    0,
-                    0
-                )
+                    # Save the image into a buffer so we can turn it into a base64 string
+                    buffer = BytesIO()
+                    img.save(buffer, format="PNG")
+                    img_str = base64.b64encode(buffer.getvalue())
 
-                # Create the ping packet (ID 0)
-                data = b''
-                data += b'\x00'
-                data += pack_data(res)
-                data = pack_data(data)
+                    # Create a response json with the given parameters
+                    res = get_ping(
+                        f"§aHello World!\n§7I've been pinged §b{str(pingcount)} §7times.",
+                        img_str.decode('utf8'),
+                        "1.8.9",
+                        47,
+                        [
+                            "This is the player list",
+                            "You can put anything here",
+                            "§cColor codes work!"
+                        ],
+                        0,
+                        0
+                    )
 
-                # Send the packet to the client
-                c.sendall(data + b'\x00')
+                    # Create the ping packet (ID 0)
+                    data = b''
+                    data += b'\x00'
+                    data += pack_data(res)
+                    data = pack_data(data)
 
-                # Send the same ping packet (ID 1) back to the client
-                c.sendall(c.recv(1024))
+                    # Send the packet to the client
+                    c.sendall(data + b'\x00')
 
-            if packet_id == 0 and next_state == 2:
-                # Make the disconnect packet
-                reason = get_reason("§cGood bye, world!\n§7You are unable to join this server! :(")
+                    # Send the same ping packet (ID 1) back to the client
+                    c.sendall(c.recv(1024))
 
-                # Create the disconnect packet (ID 0)
-                data = b''
-                data += b'\x00'
-                data += pack_data(reason)
-                data = pack_data(data)
+                if next_state == 2:
+                    # Make the disconnect packet
+                    reason = get_reason("§cGood bye, world!\n§7You are unable to join this server! :(")
 
-                # Send the packet to the client
-                c.sendall(data + b'\x00')
+                    # Create the disconnect packet (ID 0)
+                    data = b''
+                    data += b'\x00'
+                    data += pack_data(reason)
+                    data = pack_data(data)
+
+                    # Send the packet to the client
+                    c.sendall(data + b'\x00')
 
             # Close the socket
             c.close()
